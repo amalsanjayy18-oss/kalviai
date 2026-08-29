@@ -11,12 +11,12 @@ export default defineConfig({
       registerType: 'autoUpdate',
       includeAssets: ['favicon.ico', 'apple-touch-icon.png', 'masked-icon.svg'],
       manifest: {
-        name: 'KalviAI - Samacheer Kalvi Companion',
+        name: 'KalviAI • கல்வி AI',
         short_name: 'KalviAI',
-        description: 'Offline-first AI learning and wellness companion for TN State Board students',
-        theme_color: '#0f172a',
-        background_color: '#0f172a',
-        display: 'standalone',
+        description: 'Offline-First Bilingual Education Companion',
+        theme_color: '#cac2b7',
+        background_color: '#cac2b7',
+        display: 'standalone', // Hides the browser address bar completely
         orientation: 'portrait',
         scope: '/',
         start_url: '/',
@@ -32,9 +32,6 @@ export default defineConfig({
             type: 'image/png'
           }
         ]
-      },
-      workbox: {
-        globPatterns: ['**/*.{js,css,html,ico,png,svg,json}']
       }
     })
   ]
