@@ -1,0 +1,44 @@
+[
+  {
+    "id": "phy-12-01",
+    "subject": "Physics",
+    "subject_ta": "இயற்பியல்",
+    "grade": "12",
+    "chapter": "Electrostatics",
+    "chapter_ta": "நிலை மின்னியல்",
+    "topic": "Coulomb's Law",
+    "topic_ta": "கூலும் விதி",
+    "summary_en": "Coulomb's Law states that the electrostatic force between two point charges is directly proportional to the product of the magnitudes of charges and inversely proportional to the square of the distance between them.",
+    "summary_ta": "கூலும் விதிப்படி, இரு புள்ளி மின்னூட்டங்களுக்கு இடையே உள்ள நிலை மின்னியல் விசை அவற்றின் மின்னூட்டங்களின் பெருக்கற்பலனுக்கு நேர்விகிதத்திலும், அவற்றிற்கு இடைப்பட்ட தொலைவின் இருமடிக்கு எதிர்விகிதத்திலும் இருக்கும்.",
+    "formula": "F = k \\frac{|q_1 q_2|}{r^2}",
+    "eli5_prompt": "Explain Coulomb's Law using the analogy of two strong magnets pushing each other apart or pulling together."
+  },
+  {
+    "id": "phy-12-02",
+    "subject": "Physics",
+    "subject_ta": "இயற்பியல்",
+    "grade": "12",
+    "chapter": "Electrostatics",
+    "chapter_ta": "நிலை மின்னியல்",
+    "topic": "Capacitors and Capacitance",
+    "topic_ta": "மின்தேக்கி மற்றும் மின்தேக்குத்திறன்",
+    "summary_en": "A capacitor is a device used to store electric charge and electrical energy. Capacitance is defined as the ratio of the magnitude of charge on either conductor plate to the potential difference existing between them.",
+    "summary_ta": "மின்தேக்கி என்பது மின் துகள்களையும் மின் ஆற்றலையும் சேமித்து வைக்கும் ஒரு சாதனம் ஆகும். மின்தேக்குத்திறன் என்பது கடத்தி ஒன்றின் மின்னூட்டத்திற்கும் அதன் மின்னழுத்த வேறுபாட்டிற்கும் இடையே உள்ள விகிதமாகும்.",
+    "formula": "C = \\frac{Q}{V}",
+    "eli5_prompt": "Explain capacitance using the analogy of a water storage tank holding pressure."
+  },
+  {
+    "id": "bio-12-01",
+    "subject": "Biology",
+    "subject_ta": "உயிரியல்",
+    "grade": "12",
+    "chapter": "Genetics",
+    "chapter_ta": "மரபியல்",
+    "topic": "Mendel's Law of Segregation",
+    "topic_ta": "மெண்டலின் பிரிதல் விதி",
+    "summary_en": "Alleles of a gene separate during gamete formation so that each gamete carries only one allele for each gene. When gametes combine at fertilization, the offspring inherit one allele from each parent.",
+    "summary_ta": "இனச்செல்கள் உருவாகும் போது ஒரு பண்பிற்கான இரண்டு அல்லீல்களும் ஒன்றிலிருந்து ஒன்று பிரிந்து தனித்தனி இனச்செல்களுக்குள் செல்கின்றன. கருவுறுதலின் போது அவை மீண்டும் இணைகின்றன.",
+    "formula": "Genotypic Ratio: 1:2:1 (TT : Tt : tt)",
+    "eli5_prompt": "Explain Mendel's segregation law like shuffling and dealing single playing cards from two decks."
+  }
+]
