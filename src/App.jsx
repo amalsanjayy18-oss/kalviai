@@ -13,24 +13,30 @@ const DISTRESS_KEYWORDS = [
   'stress', 'stressed', 'depressed', 'anxious', 'anxiety', 'fail', 'failing', 
   'give up', 'hopeless', 'pressure', 'scared', 'tired of life', 'die', 'மன அழுத்தம்', 'பயம்'
 ]
-// Expanded Application Stages: 'welcome' -> 'login' -> 'subjects' -> 'lessons' -> 'topicDetail' -> 'quiz'
-const [appStage, setAppStage] = useState('welcome') 
-const [selectedTopic, setSelectedTopic] = useState(null)
 
-  // Core App States
+export default function App() {
+  // Application Stage: 'welcome' -> 'login' -> 'subjects' -> 'lessons' -> 'topicDetail' -> 'quiz'
+  const [appStage, setAppStage] = useState('welcome')
+  const [userName, setUserName] = useState('')
+  const [userGrade, setUserGrade] = useState('')
+  
+  // Navigation & Content States
+  const [selectedTopic, setSelectedTopic] = useState(null)
+  const [selectedLesson, setSelectedLesson] = useState(null)
+  const [selectedSubject, setSelectedSubject] = useState('')
   const [lang, setLang] = useState('en')
+  
+  // Chat & AI States
   const [activeTab, setActiveTab] = useState('syllabus')
-  const [selectedSubject, setSelectedSubject] = useState('All')
   const [messages, setMessages] = useState([])
   const [inputValue, setInputValue] = useState('')
   const [activeBot, setActiveBot] = useState('arivu')
   const [strikeCount, setStrikeCount] = useState(0)
-  const [selectedLesson, setSelectedLesson] = useState(null)
   const [isGenerating, setIsGenerating] = useState(false)
-
   const messagesEndRef = useRef(null)
-  const subjects = ['All', ...new Set(syllabusData.map(item => item.subject))]
-  const filteredLessons = selectedSubject === 'All' ? syllabusData : syllabusData.filter(item => item.subject === selectedSubject)
+
+  const subjects = [...new Set(syllabusData.map(item => item.subject))]
+  const filteredLessons = syllabusData.filter(item => item.subject === selectedSubject)
 
   // Trigger Welcome Animation Fade
   useEffect(() => {
@@ -50,11 +56,10 @@ const [selectedTopic, setSelectedTopic] = useState(null)
     setIsGenerating(true)
     let streamedText = ""
     setMessages(prev => [...prev, { sender: 'arivu', text: "", isTyping: true }])
-
     const contextData = lessonContext 
       ? (lang === 'en' ? lessonContext.summary_en : lessonContext.summary_ta) 
       : `General ${userGrade}th standard Samacheer Kalvi concepts.`
-
+    
     const generateLocalAnalogy = () => {
       const topic = lessonContext?.topic || "Concept"
       if (topic.includes("Coulomb")) {
@@ -78,7 +83,6 @@ const [selectedTopic, setSelectedTopic] = useState(null)
         }),
         new Promise((_, reject) => setTimeout(() => reject(new Error("Timeout")), 5000))
       ])
-
       for await (const chunk of responseStream) {
         const textChunk = chunk.choices[0]?.delta?.content || ""
         streamedText += textChunk
@@ -125,7 +129,6 @@ const [selectedTopic, setSelectedTopic] = useState(null)
     const lower = userText.toLowerCase()
     setInputValue('')
     const isDistressed = DISTRESS_KEYWORDS.some(word => lower.includes(word))
-
     if (isDistressed) {
       const nextStrike = strikeCount + 1
       setStrikeCount(nextStrike)
@@ -155,7 +158,7 @@ const [selectedTopic, setSelectedTopic] = useState(null)
     return (
       <div className="flex justify-center items-center h-screen w-screen bg-[#cac2b7] font-['Space_Mono',monospace] overflow-hidden p-4">
         
-        {/* Animated Welcome Screen with the Serif Tamil Headline Font */}
+        {/* Animated Welcome Screen */}
         <div className={`absolute transition-all duration-1000 ease-in-out ${appStage === 'welcome' ? 'opacity-100 scale-100' : 'opacity-0 scale-110 pointer-events-none'}`}>
           <div className="flex flex-col items-center justify-center gap-2 animate-pulse">
             <span className="text-xs uppercase tracking-[0.3em] font-bold text-neutral-600">Welcome To</span>
@@ -170,7 +173,7 @@ const [selectedTopic, setSelectedTopic] = useState(null)
           </div>
         </div>
 
-        {/* Clean, Centered Login Form */}
+        {/* Login Form */}
         <div className={`w-full max-w-sm p-8 bg-[#fdfcf9] border-2 border-black shadow-[8px_8px_0px_0px_rgba(0,0,0,1)] flex flex-col gap-8 transition-all duration-1000 delay-300 ease-out ${appStage === 'login' ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-8 pointer-events-none'}`}>
           <div className="text-center space-y-1">
             <div className="flex items-baseline justify-center gap-1.5 border-b-2 border-black pb-2">
@@ -179,7 +182,6 @@ const [selectedTopic, setSelectedTopic] = useState(null)
             </div>
             <p className="text-[10px] uppercase font-bold text-neutral-500 tracking-widest pt-2">Sign In To Continue</p>
           </div>
-
           <div className="flex flex-col gap-5">
             <div className="flex flex-col gap-2">
               <label className="text-xs font-bold uppercase tracking-wider text-black">First Name</label>
@@ -191,7 +193,6 @@ const [selectedTopic, setSelectedTopic] = useState(null)
                 placeholder="Enter your name..." 
               />
             </div>
-
             <div className="flex flex-col gap-2">
               <label className="text-xs font-bold uppercase tracking-wider text-black">Select Grade</label>
               <div className="grid grid-cols-2 gap-3">
@@ -210,104 +211,146 @@ const [selectedTopic, setSelectedTopic] = useState(null)
               </div>
             </div>
           </div>
-
           <button 
             onClick={() => { if(userName && userGrade) setAppStage('subjects') }} 
-          disabled={!userName || !userGrade} 
-           className="mt-2 p-4 bg-black text-white font-bold text-sm tracking-widest uppercase disabled:bg-neutral-400 disabled:cursor-not-allowed hover:bg-neutral-800 transition-colors shadow-[4px_4px_0px_0px_rgba(0,0,0,1)] disabled:shadow-none active:translate-x-1 active:translate-y-1 active:shadow-none cursor-pointer"
->
-  Start Learning
-</button> 
+            disabled={!userName || !userGrade} 
+            className="mt-2 p-4 bg-black text-white font-bold text-sm tracking-widest uppercase disabled:bg-neutral-400 disabled:cursor-not-allowed hover:bg-neutral-800 transition-colors shadow-[4px_4px_0px_0px_rgba(0,0,0,1)] disabled:shadow-none active:translate-x-1 active:translate-y-1 active:shadow-none cursor-pointer"
+          >
+            Start Learning
+          </button>
         </div>
       </div>
     )
   }
 
   // ==========================================
-  // VIEW 2: MAIN EDUCATIONAL PORTAL
+  // VIEW 2: MULTI-STAGE EDUCATIONAL FLOW
   // ==========================================
-// ==========================================
-// VIEW 2: DRILL-DOWN EDUCATIONAL PORTAL
-// ==========================================
-return (
-  <div className="flex justify-center items-center min-h-screen p-2 sm:p-6 bg-[#cac2b7]">
-    <div className="flex flex-col h-[92vh] max-h-[820px] w-full max-w-sm rounded-2xl overflow-hidden border-2 border-black bg-[#f4efe8] text-black font-['Space_Mono',monospace]">
-      
-      {/* 1. SUBJECT SELECTION PAGE */}
-      {appStage === 'subjects' && (
-        <div className="flex flex-col h-full p-4 space-y-4">
-          <h2 className="text-xl font-bold uppercase border-b-2 border-black pb-2">Select Subject</h2>
-          <div className="grid grid-cols-1 gap-3">
-            {subjects.filter(s => s !== 'All').map(subject => (
-              <button 
-                key={subject}
-                onClick={() => {
-                  setSelectedSubject(subject);
-                  setAppStage('lessons');
-                }}
-                className="p-4 border-2 border-black bg-[#ffd166] font-bold uppercase shadow-[4px_4px_0px_0px_rgba(0,0,0,1)] hover:-translate-y-1 transition-transform"
-              >
-                {subject}
-              </button>
-            ))}
+  return (
+    <div className="flex justify-center items-center min-h-screen p-2 sm:p-6 bg-[#cac2b7] font-['Space_Mono',monospace]">
+      <div className="flex flex-col h-[92vh] max-h-[820px] w-full max-w-sm rounded-2xl overflow-hidden border-2 border-black bg-[#f4efe8] text-black shadow-[8px_8px_0px_0px_rgba(0,0,0,1)]">
+        
+        {/* Persistent Top Header */}
+        <header className="p-3 border-b-2 border-black bg-[#ede6dc] flex items-center justify-between select-none">
+          <div className="flex items-baseline gap-1">
+            <span className="font-['Kavivanar',serif] font-black text-lg leading-none">கல்வி</span>
+            <span className="font-extrabold text-sm tracking-wider uppercase font-['VT323',monospace] text-base leading-none">
+              AI // CLASS {userGrade}
+            </span>
           </div>
-        </div>
-      )}
+          <span className="text-[10px] font-bold uppercase bg-black text-[#6bf755] px-2 py-0.5">
+            {userName}
+          </span>
+        </header>
 
-      {/* 2. LESSONS SCROLL LIST */}
-      {appStage === 'lessons' && (
-        <div className="flex flex-col h-full p-4 space-y-4">
-          <button onClick={() => setAppStage('subjects')} className="self-start text-xs font-bold underline">&larr; Back to Subjects</button>
-          <h2 className="text-xl font-bold uppercase border-b-2 border-black pb-2">{selectedSubject} Lessons</h2>
-          <div className="flex-1 overflow-y-auto space-y-3 no-scrollbar">
-            {filteredLessons.map(lesson => (
-              <button 
-                key={lesson.id}
-                onClick={() => {
-                  setSelectedLesson(lesson);
-                  setAppStage('topicDetail');
-                }}
-                className="w-full text-left p-4 border-2 border-black bg-[#fdfcf9] font-bold shadow-[4px_4px_0px_0px_rgba(0,0,0,1)]"
-              >
-                {lesson.chapter}: {lesson.topic}
-              </button>
-            ))}
+        {/* 1. SUBJECT SELECTION PAGE */}
+        {appStage === 'subjects' && (
+          <div className="flex flex-col h-full p-4 space-y-4">
+            <h2 className="text-lg font-black uppercase border-b-2 border-black pb-2">Select Subject</h2>
+            <div className="grid grid-cols-1 gap-3">
+              {subjects.map(subject => (
+                <button 
+                  key={subject}
+                  onClick={() => {
+                    setSelectedSubject(subject)
+                    setAppStage('lessons')
+                  }}
+                  className="p-4 border-2 border-black bg-[#ffd166] text-black font-bold text-sm tracking-wider uppercase shadow-[4px_4px_0px_0px_rgba(0,0,0,1)] hover:-translate-y-0.5 active:translate-x-0.5 active:translate-y-0.5 transition-all text-left"
+                >
+                  {subject}
+                </button>
+              ))}
+            </div>
           </div>
-        </div>
-      )}
+        )}
 
-      {/* 3. TOPIC DETAILS & QUIZ TRIGGER */}
-      {appStage === 'topicDetail' && selectedLesson && (
-        <div className="flex flex-col h-full p-4 space-y-4">
-          <button onClick={() => setAppStage('lessons')} className="self-start text-xs font-bold underline">&larr; Back to Lessons</button>
-          <h2 className="text-xl font-bold uppercase">{selectedLesson.topic}</h2>
-          <p className="flex-1 overflow-y-auto text-sm leading-relaxed">{selectedLesson.summary_en}</p>
-          <button 
-            onClick={() => setAppStage('quiz')}
-            className="w-full p-4 border-2 border-black bg-[#ff6b6b] text-white font-bold uppercase shadow-[4px_4px_0px_0px_rgba(0,0,0,1)]"
-          >
-            Quiz Me!
-          </button>
-        </div>
-      )}
-
-      {/* 4. HARDCODED QUIZ PAGE */}
-      {appStage === 'quiz' && (
-        <div className="flex flex-col h-full p-4 space-y-4">
-          <h2 className="text-xl font-bold uppercase border-b-2 border-black pb-2">Topic Quiz</h2>
-          <div className="flex-1 overflow-y-auto space-y-4">
-            <p className="text-sm font-bold">Question 1: Sample hardcoded question?</p>
-            {/* Map your 10 hardcoded questions here */}
+        {/* 2. LESSONS SCROLL LIST */}
+        {appStage === 'lessons' && (
+          <div className="flex flex-col h-full p-4 space-y-4">
+            <button 
+              onClick={() => setAppStage('subjects')} 
+              className="self-start text-xs font-bold uppercase underline hover:text-neutral-600 cursor-pointer"
+            >
+              &larr; Back to Subjects
+            </button>
+            <h2 className="text-lg font-black uppercase border-b-2 border-black pb-2">{selectedSubject} Lessons</h2>
+            <div className="flex-1 overflow-y-auto space-y-3 pr-1">
+              {filteredLessons.map(lesson => (
+                <div 
+                  key={lesson.id}
+                  onClick={() => {
+                    setSelectedLesson(lesson)
+                    setAppStage('topicDetail')
+                  }}
+                  className="p-3 bg-[#fdfcf9] border-2 border-black shadow-[4px_4px_0px_0px_rgba(0,0,0,1)] hover:bg-[#fff9db] cursor-pointer transition-colors space-y-1"
+                >
+                  <span className="text-[10px] font-bold text-neutral-500 uppercase">{lesson.chapter}</span>
+                  <h3 className="text-xs font-bold leading-tight">{lesson.topic}</h3>
+                </div>
+              ))}
+            </div>
           </div>
-          <button 
-            onClick={() => setAppStage('lessons')}
-            className="w-full p-4 border-2 border-black bg-black text-white font-bold uppercase shadow-[4px_4px_0px_0px_rgba(0,0,0,1)]"
-          >
-            Complete Quiz & Return
-          </button>
-        </div>
-      )}
+        )}
 
+        {/* 3. TOPIC DETAILS & ACTIONS */}
+        {appStage === 'topicDetail' && selectedLesson && (
+          <div className="flex flex-col h-full p-4 space-y-4">
+            <button 
+              onClick={() => setAppStage('lessons')} 
+              className="self-start text-xs font-bold uppercase underline hover:text-neutral-600 cursor-pointer"
+            >
+              &larr; Back to Lessons
+            </button>
+            <div className="space-y-1 border-b-2 border-black pb-2">
+              <span className="text-[10px] font-bold text-neutral-500 uppercase">{selectedLesson.chapter}</span>
+              <h2 className="text-base font-black uppercase">{selectedLesson.topic}</h2>
+            </div>
+            <div className="flex-1 overflow-y-auto pr-1 text-xs leading-relaxed text-neutral-800 space-y-3">
+              <p>{selectedLesson.summary_en}</p>
+              {selectedLesson.formula && (
+                <div className="p-2 bg-[#ede6dc] border border-black text-[11px] font-bold">
+                  Formula: {selectedLesson.formula}
+                </div>
+              )}
+            </div>
+            <button 
+              onClick={() => setAppStage('quiz')}
+              className="w-full py-3 bg-[#ff6b6b] text-black border-2 border-black font-bold text-xs uppercase tracking-wider shadow-[4px_4px_0px_0px_rgba(0,0,0,1)] active:translate-x-0.5 active:translate-y-0.5 cursor-pointer"
+            >
+              Quiz Me (10 Questions)
+            </button>
+          </div>
+        )}
+
+        {/* 4. 10-QUESTION HARDCODED QUIZ */}
+        {appStage === 'quiz' && (
+          <div className="flex flex-col h-full p-4 space-y-4">
+            <h2 className="text-lg font-black uppercase border-b-2 border-black pb-2">Topic Assessment</h2>
+            <div className="flex-1 overflow-y-auto space-y-4 pr-1 text-xs">
+              {[...Array(10)].map((_, i) => (
+                <div key={i} className="p-3 bg-[#fdfcf9] border border-black space-y-2">
+                  <p className="font-bold">Q{i + 1}: Conceptual check question regarding {selectedLesson?.topic || 'this topic'}?</p>
+                  <div className="space-y-1">
+                    {['Option A', 'Option B', 'Option C', 'Option D'].map((opt, optIndex) => (
+                      <label key={optIndex} className="flex items-center gap-2 text-[11px] cursor-pointer">
+                        <input type="radio" name={`q${i}`} className="accent-black" />
+                        <span>{opt}</span>
+                      </label>
+                    ))}
+                  </div>
+                </div>
+              ))}
+            </div>
+            <button 
+              onClick={() => setAppStage('topicDetail')}
+              className="w-full py-3 bg-black text-white border-2 border-black font-bold text-xs uppercase tracking-wider shadow-[4px_4px_0px_0px_rgba(0,0,0,1)] active:translate-x-0.5 active:translate-y-0.5 cursor-pointer"
+            >
+              Complete Quiz & Return to Topic
+            </button>
+          </div>
+        )}
+
+      </div>
     </div>
-  </div>
-)
+  )
+}
