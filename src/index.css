@@ -1,21 +1,16 @@
 @import "tailwindcss";
 
-@layer base {
-  body {
-    background-color: #d6cfc7;
-    color: #1a1a1a;
-    font-family: 'Space Mono', monospace;
-    -webkit-tap-highlight-color: transparent;
+/* Enable class-based manual dark mode toggling */
+@layer utilities {
+  .dark {
+    color-scheme: dark;
   }
 }
 
-/* Custom retro scrollbar */
-::-webkit-scrollbar {
-  width: 4px;
-}
-::-webkit-scrollbar-track {
-  background: #ede8e1;
-}
-::-webkit-scrollbar-thumb {
-  background: #1a1a1a;
+/* Base body styling to lock smooth scrolling */
+body {
+  margin: 0;
+  padding: 0;
+  overscroll-behavior-y: none;
+  -webkit-font-smoothing: antialiased;
 }
