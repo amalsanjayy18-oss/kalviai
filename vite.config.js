@@ -36,5 +36,11 @@ export default defineConfig({
         globPatterns: ['**/*.{js,css,html,ico,png,svg,json}']
       }
     })
-  ]
+  ],
+  server: {
+    headers: {
+      'Cross-Origin-Opener-Policy': 'same-origin',
+      'Cross-Origin-Embedder-Policy': 'credentialless',
+    },
+  },
 })
