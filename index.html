@@ -1,13 +1,16 @@
 <!doctype html>
 <html lang="en">
   <head>
-    <meta 
-  http-equiv="Content-Security-Policy" 
-  content="default-src 'self' https: data: blob:; script-src 'self' 'unsafe-eval' 'wasm-unsafe-eval' 'unsafe-inline' https:; style-src 'self' 'unsafe-inline' https:; connect-src 'self' https: wss: blob: data:;"
-/>
     <meta charset="UTF-8" />
-    <link rel="icon" type="image/svg+xml" href="/vite.svg" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+    
+    <!-- Permissive Content Security Policy with Blob, WASM, and Web Worker access -->
+    <meta 
+      http-equiv="Content-Security-Policy" 
+      content="default-src 'self' https: data: blob:; script-src 'self' 'unsafe-eval' 'wasm-unsafe-eval' 'unsafe-inline' https: blob:; worker-src 'self' blob:; style-src 'self' 'unsafe-inline' https:; connect-src 'self' https: wss: blob: data:; img-src 'self' data: blob: https:;"
+    />
+    
+    <link rel="icon" type="image/svg+xml" href="/vite.svg" />
     
     <!-- PWA & Standalone Display Meta Tags -->
     <meta name="theme-color" content="#cac2b7" />
