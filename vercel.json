@@ -5,7 +5,7 @@
       "headers": [
         {
           "key": "Content-Security-Policy",
-          "value": "default-src 'self' https: data: blob:; script-src 'self' 'unsafe-eval' 'wasm-unsafe-eval' 'unsafe-inline' https: blob:; style-src 'self' 'unsafe-inline' https:; connect-src 'self' https: wss: blob: data:; img-src 'self' data: blob: https:;"
+          "value": "default-src 'self' https: data: blob:; script-src 'self' 'unsafe-eval' 'wasm-unsafe-eval' 'unsafe-inline' https: blob:; worker-src 'self' blob:; style-src 'self' 'unsafe-inline' https:; connect-src 'self' https: wss: blob: data:; img-src 'self' data: blob: https:;"
         },
         {
           "key": "Cross-Origin-Opener-Policy",

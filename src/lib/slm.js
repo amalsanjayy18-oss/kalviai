@@ -1,33 +1,33 @@
 import { pipeline, env } from '@huggingface/transformers'
 
-// Optimize environment for local browser execution
 env.allowLocalModels = false
-env.useBrowserCache = true // Automatically caches model weights in browser IndexedDB
+env.useBrowserCache = true
 
 let generatorPromise = null
 
 /**
  * Initializes the on-device Small Language Model (SLM)
- * Runs locally via WebGPU (falling back to WASM/CPU).
- * @param {Function} [onProgress] - Optional callback for download progress
+ * Loads quantized ONNX model compatible with Transformers.js v3+
  */
 export async function initSLM(onProgress) {
   if (!generatorPromise) {
+    const MODEL_ID = 'onnx-community/Qwen2.5-0.5B-Instruct'
+
     generatorPromise = pipeline(
-      'text-generation',
-      'Xenova/Qwen1.5-0.5B-Chat',
+      'text-generation', 
+      MODEL_ID,
       {
         device: 'webgpu',
         progress_callback: onProgress
       }
     ).catch(err => {
-      console.warn('WebGPU not available, falling back to WASM/CPU:', err)
+      console.warn("WebGPU unavailable, switching to WASM:", err)
       return pipeline(
-        'text-generation',
-        'Xenova/Qwen1.5-0.5B-Chat',
-        {
-          device: 'wasm',
-          progress_callback: onProgress
+        'text-generation', 
+        MODEL_ID,
+        { 
+          device: 'wasm', 
+          progress_callback: onProgress 
         }
       )
     })
@@ -35,34 +35,35 @@ export async function initSLM(onProgress) {
   return generatorPromise
 }
 
-/**
- * Executes on-device RAG generation
- * @param {string} userPrompt - The student's question
- * @param {string} contextData - Retrieved syllabus context snippet
- * @param {string} lang - 'en' or 'ta'
- */
 export async function generateLocalResponse(userPrompt, contextData, lang) {
   try {
     const generator = await initSLM()
+    
+    const messages = [
+      { 
+        role: "system", 
+        content: `You are Arivu, a helpful Tamil Nadu State Board tutor. Explain concepts simply using everyday analogies. Answer strictly using this syllabus context: "${contextData}". Always respond in ${lang === 'en' ? 'English' : 'Tamil'}. Keep responses under 3 sentences.` 
+      },
+      { role: "user", content: userPrompt }
+    ]
 
-    const systemPrompt = `You are Arivu, a helpful Tamil Nadu State Board tutor. Explain concepts simply using everyday analogies. Answer strictly using this syllabus context: "${contextData}". Always respond in ${lang === 'en' ? 'English' : 'Tamil'}. Keep responses under 3 sentences.`
-
-    const formattedPrompt = `<|im_start|>system\n${systemPrompt}<|im_end|>\n<|im_start|>user\n${userPrompt}<|im_end|>\n<|im_start|>assistant\n`
-
-    const result = await generator(formattedPrompt, {
-      max_new_tokens: 150,
-      temperature: 0.6,
-      do_sample: true
+    const text = generator.tokenizer.apply_chat_template(messages, {
+      tokenize: false,
+      add_generation_prompt: true,
     })
 
-    const rawText = result[0]?.generated_text || ''
-    const responseText = rawText.split('<|im_start|>assistant\n')[1] || rawText
+    const result = await generator(text, {
+      max_new_tokens: 120,
+      temperature: 0.6,
+      do_sample: true,
+      return_full_text: false
+    })
 
-    return responseText.replace(/<\|im_end\|>/g, '').trim()
+    return result[0]?.generated_text?.trim() || (lang === 'en' ? `Summary: ${contextData}` : `சுருக்கம்: ${contextData}`)
   } catch (error) {
-    console.error('Local SLM Generation Error:', error)
-    return lang === 'en'
-      ? `Concept Summary: ${contextData}`
+    console.error("Local SLM Generation Error:", error)
+    return lang === 'en' 
+      ? `Concept Summary: ${contextData}` 
       : `பாடச் சுருக்கம்: ${contextData}`
   }
 }
