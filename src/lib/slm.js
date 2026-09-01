@@ -25,7 +25,7 @@ export async function initSLM(onProgress) {
       // Fallback for older phones or browsers without WebGPU
       return pipeline(
         'text-generation', 
-        'onnx-community/SmolLM2-135M-Instruct',
+        'Xenova/Qwen1.5-0.5B-Chat',
         { device: 'wasm', progress_callback: onProgress }
       )
     })
