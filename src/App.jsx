@@ -1,75 +1,108 @@
 import React, { useState, useRef, useEffect } from 'react'
 import { 
   BookOpen, Sparkles, HeartHandshake, Languages, GraduationCap, 
-  Send, PhoneCall, ShieldAlert, ArrowLeft, Sun, Moon, Camera, 
-  Upload, X, Loader2, CheckCircle2, Award
+  Send, PhoneCall, ShieldAlert, ArrowLeft, Sun, Moon, 
+  CheckCircle2, Award, LayoutDashboard, LogOut, BarChart3, 
+  HelpCircle, ChevronRight, Check, X
 } from 'lucide-react'
 import syllabusData from './data/syllabus.json'
 import { saveSecureData, getSecureData } from './lib/db.js'
-import { generateLocalResponse, initSLM } from './lib/slm.js'
-import { supabase } from './lib/supabase.js'
 
 const DISTRESS_KEYWORDS = [
   'stress', 'stressed', 'depressed', 'anxious', 'anxiety', 'fail', 'failing', 
   'give up', 'hopeless', 'pressure', 'scared', 'tired of life', 'die', 'மன அழுத்தம்', 'பயம்'
 ]
 
+// 5 Conceptual Questions per topic for local offline grading
+const SAMPLE_QUIZ_QUESTIONS = [
+  {
+    q_en: "What is the primary governing principle of this concept?",
+    q_ta: "இக்கோட்பாட்டின் முதன்மையான அடிப்படை விதி எது?",
+    options_en: ["Direct proportional relationship", "Inverse cubic decrease", "Zero net interaction", "Constant saturation state"],
+    options_ta: ["நேர்விகித தொடர்பு", "தலைகீழ் முப்படி குறைவு", "சுழி தொடர்பு", "நிலையான செறிவு நிலை"],
+    correct: 0
+  },
+  {
+    q_en: "Under which specific boundary conditions does this law hold true?",
+    q_ta: "எந்த குறிப்பிட்ட நிபந்தனைகளின் கீழ் இந்த விதி பொருந்தும்?",
+    options_en: ["Only at absolute zero", "In standard vacuum or uniform media", "During relativistic velocity only", "Under extreme thermal fluctuation"],
+    options_ta: ["முழுமையான சுழி வெப்பநிலையில்", "வெற்றிடம் அல்லது சீரான ஊடகத்தில்", "ஒளி வேக இயக்கத்தில் மட்டும்", "அதிக வெப்ப மாறுபாட்டில்"],
+    correct: 1
+  },
+  {
+    q_en: "How does doubling the intervening distance impact the net resultant magnitude?",
+    q_ta: "தொலைவை இருமடங்காக அதிகரித்தால் ஏற்படும் விளைவு என்ன?",
+    options_en: ["Increases by 2x", "Remains unchanged", "Reduces to 1/4th (Inverse Square)", "Doubles exponentially"],
+    options_ta: ["2 மடங்கு அதிகரிக்கும்", "மாற்றமிருக்காது", "1/4 மடங்காகக் குறையும் (எதிர் இருமடி)", "அதிவேகமாக இரட்டிப்பாகும்"],
+    correct: 2
+  },
+  {
+    q_en: "Which standard SI unit is assigned to the primary calculated variable?",
+    q_ta: "இக்கோட்பாட்டின் முக்கிய மாறிலியின் SI அலகு எது?",
+    options_en: ["Newton (N) / Joule (J)", "Coulomb / Farad", "Tesla / Weber", "Pascal / Watt"],
+    options_ta: ["நியூட்டன் (N) / ஜூல் (J)", "கூலும் / பாரட்", "டெஸ்லா / வெபர்", "பாஸ்கல் / வாட்"],
+    correct: 0
+  },
+  {
+    q_en: "In practical engineering, where is this concept predominantly applied?",
+    q_ta: "நடைமுறை பொறியியலில் இதன் நேரடி பயன்பாடு எங்குள்ளது?",
+    options_en: ["Circuit design & energy storage capacitors", "Acoustic dampening", "Optic fiber dispersion", "Hydraulic fluid pumps"],
+    options_ta: ["மின்சுற்று மற்றும் மின்தேக்கிகள்", "ஒலித் தடுப்பான்", "ஒளி இழை ஊடகம்", "நீரியல் பம்புகள்"],
+    correct: 0
+  }
+]
+
 export default function App() {
-  // Application Stage: 'welcome' -> 'login' -> 'subjects' -> 'lessons' -> 'topicDetail' -> 'quiz'
+  // App navigation state: 'welcome' -> 'login' -> 'main'
   const [appStage, setAppStage] = useState('welcome')
+  const [activeTab, setActiveTab] = useState('dashboard') // 'dashboard' | 'syllabus' | 'chat'
+  const [syllabusView, setSyllabusView] = useState('subjects') // 'subjects' | 'lessons' | 'topicDetail' | 'quiz'
+
+  // User Profile & Preferences
   const [userName, setUserName] = useState('')
-  const [userEmail, setUserEmail] = useState('')
-  const [userGrade, setUserGrade] = useState('')
+  const [userGrade, setUserGrade] = useState('12')
+  const [lang, setLang] = useState('en')
   const [darkMode, setDarkMode] = useState(false)
 
-  // Navigation & Content States
+  // Curriculum & Lesson Selection
   const [selectedSubject, setSelectedSubject] = useState('')
   const [selectedLesson, setSelectedLesson] = useState(null)
-  const [lang, setLang] = useState('en')
-  const [activeTab, setActiveTab] = useState('syllabus')
 
-  // Chat & AI States
+  // Chat & Kavani State
   const [messages, setMessages] = useState([])
   const [inputValue, setInputValue] = useState('')
   const [activeBot, setActiveBot] = useState('arivu')
   const [strikeCount, setStrikeCount] = useState(0)
-  const [isGenerating, setIsGenerating] = useState(false)
-  const [slmLoadingStatus, setSlmLoadingStatus] = useState('')
 
-  // Picture Upload Modal State
-  const [showPicModal, setShowPicModal] = useState(false)
-  const [selectedImageBase64, setSelectedImageBase64] = useState(null)
-  const [imagePrompt, setImagePrompt] = useState('')
-  const [isSolvingImage, setIsSolvingImage] = useState(false)
-
-  // Quiz Progress State
-  const [quizAnswers, setQuizAnswers] = useState({})
-  const [completedTopics, setCompletedTopics] = useState([])
+  // Progress, Quiz & Marks Store
+  // Format: { [topicId]: { score: 80, completed: true, answers: {0: 0, 1: 1...} } }
+  const [topicProgress, setTopicProgress] = useState({})
+  const [currentQuizSelection, setCurrentQuizSelection] = useState({})
+  const [quizSubmitted, setQuizSubmitted] = useState(false)
+  const [currentQuizScore, setCurrentQuizScore] = useState(0)
 
   const messagesEndRef = useRef(null)
-  const fileInputRef = useRef(null)
 
   const subjects = [...new Set(syllabusData.map(item => item.subject))]
   const filteredLessons = syllabusData.filter(item => item.subject === selectedSubject)
 
-  // 1. Initial Load: Check Offline DB for Existing Login & Theme
+  // 1. Initial Load: Restore Offline Profile & Encrypted Progress
   useEffect(() => {
     async function restoreSession() {
       const savedTheme = localStorage.getItem('kalviai_theme')
       if (savedTheme === 'dark') setDarkMode(true)
 
       const profile = await getSecureData('user_profile')
-      const progress = await getSecureData('user_progress')
+      const progress = await getSecureData('user_progress_data')
 
-      if (progress && progress.completed) {
-        setCompletedTopics(progress.completed)
+      if (progress) {
+        setTopicProgress(progress)
       }
 
-      if (profile && profile.name && profile.grade) {
+      if (profile && profile.name) {
         setUserName(profile.name)
-        setUserEmail(profile.email || '')
-        setUserGrade(profile.grade)
-        setAppStage('subjects')
+        setUserGrade(profile.grade || '12')
+        setAppStage('main')
       } else {
         const timer = setTimeout(() => setAppStage('login'), 2000)
         return () => clearTimeout(timer)
@@ -78,63 +111,93 @@ export default function App() {
     restoreSession()
   }, [])
 
-  // 2. Toggle Dark / Light Theme
+  // 2. Save Progress to Encrypted Local DB
+  const saveProgressToDisk = async (updatedProgress) => {
+    setTopicProgress(updatedProgress)
+    await saveSecureData('user_progress_data', updatedProgress)
+  }
+
+  // 3. Theme Toggle
   const toggleTheme = () => {
     const nextTheme = !darkMode
     setDarkMode(nextTheme)
     localStorage.setItem('kalviai_theme', nextTheme ? 'dark' : 'light')
   }
 
-  // 3. One-Time Online Login Handler
-  const handleInitialLogin = async () => {
+  // 4. Session Login
+  const handleLogin = async () => {
     if (!userName.trim() || !userGrade) return
-
-    // Save profile locally in encrypted IndexedDB (available 100% offline from now on)
-    const profile = { name: userName, email: userEmail, grade: userGrade, created_at: new Date().toISOString() }
+    const profile = { name: userName.trim(), grade: userGrade }
     await saveSecureData('user_profile', profile)
+    setAppStage('main')
+    setActiveTab('dashboard')
+  }
 
-    // Optional Cloud Sync to Supabase if connected
-    if (navigator.onLine && userEmail) {
-      try {
-        await supabase.from('students').upsert({
-          name: userName,
-          email: userEmail,
-          grade: userGrade
-        })
-      } catch (err) {
-        console.warn('Cloud registration deferred (offline):', err.message)
+  // 5. Session Logout
+  const handleLogout = async () => {
+    await saveSecureData('user_profile', null)
+    setUserName('')
+    setTopicProgress({})
+    setStrikeCount(0)
+    setMessages([])
+    setAppStage('login')
+  }
+
+  // 6. Metrics Calculation for Dashboard
+  const totalTopicsCount = syllabusData.length
+  const completedTopicsList = Object.keys(topicProgress).filter(id => topicProgress[id]?.completed)
+  const completedCount = completedTopicsList.length
+  const overallPercentage = totalTopicsCount > 0 ? Math.round((completedCount / totalTopicsCount) * 100) : 0
+
+  const totalScoresSum = completedTopicsList.reduce((sum, id) => sum + (topicProgress[id]?.score || 0), 0)
+  const averageScore = completedCount > 0 ? Math.round(totalScoresSum / completedCount) : 0
+
+  const getSubjectMetrics = (subjectName) => {
+    const subjectTopics = syllabusData.filter(item => item.subject === subjectName)
+    const total = subjectTopics.length
+    const completed = subjectTopics.filter(item => topicProgress[item.id]?.completed).length
+    const percent = total > 0 ? Math.round((completed / total) * 100) : 0
+    return { total, completed, percent }
+  }
+
+  // 7. Handle Quiz Submission & Marks
+  const handleSubmitQuiz = async () => {
+    if (!selectedLesson) return
+
+    let correctCount = 0
+    SAMPLE_QUIZ_QUESTIONS.forEach((q, index) => {
+      if (currentQuizSelection[index] === q.correct) {
+        correctCount += 1
+      }
+    })
+
+    const finalMarks = Math.round((correctCount / SAMPLE_QUIZ_QUESTIONS.length) * 100)
+    setCurrentQuizScore(finalMarks)
+    setQuizSubmitted(true)
+
+    const updated = {
+      ...topicProgress,
+      [selectedLesson.id]: {
+        completed: true,
+        score: finalMarks,
+        answers: currentQuizSelection,
+        updatedAt: new Date().toISOString()
       }
     }
-
-    setAppStage('subjects')
+    await saveProgressToDisk(updated)
   }
 
-  // 4. Scroll Chat to Bottom
-  useEffect(() => {
-    messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' })
-  }, [messages])
-
-  // 5. Offline SLM RAG Query Execution
-  const triggerOfflineSLM = async (userPrompt, lessonContext) => {
-    setIsGenerating(true)
-    setMessages(prev => [...prev, { sender: 'arivu', text: 'Generating explanation via offline neural engine...', isLoading: true }])
-
-    const contextData = lessonContext 
-      ? (lang === 'en' ? lessonContext.summary_en : lessonContext.summary_ta) 
-      : `General Class ${userGrade} Samacheer Kalvi concepts.`
-
-    const reply = await generateLocalResponse(userPrompt, contextData, lang)
-
-    setIsGenerating(false)
-    setMessages(prev => [
-      ...prev.slice(0, -1),
-      { sender: 'arivu', text: reply, formula: lessonContext?.formula }
-    ])
+  const startQuizForTopic = (lesson) => {
+    setSelectedLesson(lesson)
+    setQuizSubmitted(false)
+    setCurrentQuizSelection(topicProgress[lesson.id]?.answers || {})
+    setCurrentQuizScore(topicProgress[lesson.id]?.score || 0)
+    setSyllabusView('quiz')
   }
 
-  // 6. Handle Distress Keyword Interception (Kavani Triage)
-  const handleUserMessage = (textToSend) => {
-    if (!textToSend.trim() || isGenerating) return
+  // 8. Chat & Kavani Interception
+  const handleSendMessage = (textToSend) => {
+    if (!textToSend.trim()) return
     const userText = textToSend.trim()
     const lower = userText.toLowerCase()
     setInputValue('')
@@ -153,7 +216,7 @@ export default function App() {
           { 
             sender: 'kavani-critical',
             text: lang === 'en'
-              ? `${userName}, your well-being is far more important than any exam. AI is disabled. Please connect with student support counsellors immediately.`
+              ? `${userName}, your well-being is far more important than any exam. AI is disabled. Please connect with student counsellors immediately.`
               : `எந்தவொரு தேர்வை விடவும் உங்கள் மனநலம் முதன்மையானது. AI முடக்கப்பட்டது. உடனடியாக உதவி எண்களைத் தொடர்பு கொள்ளவும்.`
           }
         ])
@@ -164,89 +227,45 @@ export default function App() {
           { 
             sender: 'kavani',
             text: lang === 'en'
-              ? `It is completely normal to feel exam pressure, ${userName}. Take a slow, deep breath. You are capable and not alone. (${nextStrike}/2)`
-              : `உங்கள் உணர்வுகளை புரிந்து கொள்ள முடிகிறது. தேர்வு நேரத்தில் இந்த அழுத்தம் இயல்பானது. அமைதியாக இருங்கள். (${nextStrike}/2)`
+              ? `It is completely normal to feel exam pressure, ${userName}. Take a slow, deep breath. You are capable and not alone.`
+              : `உங்கள் உணர்வுகளை புரிந்து கொள்ள முடிகிறது. தேர்வு நேரத்தில் இந்த அழுத்தம் இயல்பானது. அமைதியாக இருங்கள்.`
           }
         ])
       }
     } else {
-      setMessages(prev => [...prev, { sender: 'user', text: userText }])
-      triggerOfflineSLM(userText, selectedLesson)
-    }
-  }
+      const summary = selectedLesson 
+        ? (lang === 'en' ? selectedLesson.summary_en : selectedLesson.summary_ta)
+        : (lang === 'en' ? "Samacheer Kalvi Class 12 General Syllabus" : "சமச்சீர் கல்வி 12ஆம் வகுப்பு பாடத்திட்டம்")
 
-  // 7. Multimodal Picture Problem Solver (Online Only)
-  const handleImageFileChange = (e) => {
-    const file = e.target.files[0]
-    if (!file) return
-    const reader = new FileReader()
-    reader.onload = (event) => {
-      setSelectedImageBase64(event.target.result)
-    }
-    reader.readAsDataURL(file)
-  }
-
-  const handleSolveImageProblem = async () => {
-    if (!selectedImageBase64) return
-
-    if (!navigator.onLine) {
-      alert(lang === 'en' ? 'Internet connection required for Picture Upload Solver.' : 'படம் மூலம் தீர்வு காண இணைய இணைப்பு தேவை.')
-      return
-    }
-
-    setIsSolvingImage(true)
-    try {
-      const res = await fetch('/api/solve-problem', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          imageBase64: selectedImageBase64,
-          prompt: imagePrompt || 'Please solve this question step-by-step with clear derivation.'
-        })
-      })
-
-      const data = await res.json()
-      setShowPicModal(false)
-      setActiveTab('chat')
-      setActiveBot('arivu')
-      
       setMessages(prev => [
         ...prev,
-        { sender: 'user', text: `📸 [Picture Uploaded]: ${imagePrompt || 'Solve step-by-step'}` },
-        { sender: 'arivu', text: data.reply || 'Problem solved successfully.' }
+        { sender: 'user', text: userText },
+        { 
+          sender: 'arivu',
+          text: lang === 'en'
+            ? `💡 Concept Overview: ${summary}\n\nKey Formula: ${selectedLesson?.formula || 'Standard relations apply'}`
+            : `💡 பாடச் சுருக்கம்: ${summary}\n\nமுக்கிய வாய்பாடு: ${selectedLesson?.formula || 'நிலையான விதி'}`
+        }
       ])
-      setSelectedImageBase64(null)
-      setImagePrompt('')
-    } catch (err) {
-      alert('Error communicating with vision solver: ' + err.message)
-    } finally {
-      setIsSolvingImage(false)
     }
   }
 
-  // 8. Complete Quiz & Save Encrypted Progress Offline
-  const handleCompleteQuiz = async () => {
-    if (selectedLesson && !completedTopics.includes(selectedLesson.id)) {
-      const updated = [...completedTopics, selectedLesson.id]
-      setCompletedTopics(updated)
-      await saveSecureData('user_progress', { completed: updated, last_updated: new Date().toISOString() })
-    }
-    setAppStage('topicDetail')
-  }
+  useEffect(() => {
+    messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' })
+  }, [messages])
 
   // =========================================================================
-  // VIEW 1: WELCOME & ONE-TIME ONLINE SIGN-IN
+  // VIEW 1: WELCOME & ONBOARDING LOGIN
   // =========================================================================
   if (appStage === 'welcome' || appStage === 'login') {
     return (
       <div className={`flex justify-center items-center h-screen w-screen font-['Space_Mono',monospace] overflow-hidden p-4 ${darkMode ? 'bg-neutral-900 text-neutral-100' : 'bg-[#cac2b7] text-black'}`}>
-        
-        {/* Welcome Splash */}
+        {/* Animated Splash */}
         <div className={`absolute transition-all duration-1000 ease-in-out ${appStage === 'welcome' ? 'opacity-100 scale-100' : 'opacity-0 scale-110 pointer-events-none'}`}>
           <div className="flex flex-col items-center justify-center gap-2 animate-pulse">
             <span className="text-xs uppercase tracking-[0.3em] font-bold text-neutral-500">Welcome To</span>
             <div className="flex items-baseline justify-center gap-2">
-              <span className="font-['Kavivanar',serif] font-black text-6xl md:text-7xl tracking-normal">கல்வி</span>
+              <span className="font-['Kavivanar',serif] font-black text-6xl md:text-7xl">கல்வி</span>
               <span className="font-['VT323',monospace] font-bold text-5xl md:text-6xl tracking-widest">AI</span>
             </div>
           </div>
@@ -259,29 +278,18 @@ export default function App() {
               <span className="font-['Kavivanar',serif] font-black text-3xl">கல்வி</span>
               <span className="font-['VT323',monospace] font-bold text-3xl tracking-wider">AI PORTAL</span>
             </div>
-            <p className="text-[10px] uppercase font-bold text-neutral-500 tracking-widest">One-Time Student Setup</p>
+            <p className="text-[10px] uppercase font-bold text-neutral-500 tracking-widest">Student Portal Login</p>
           </div>
 
           <div className="flex flex-col gap-4">
             <div className="flex flex-col gap-1.5">
-              <label className="text-xs font-bold uppercase tracking-wider">Your Name</label>
+              <label className="text-xs font-bold uppercase tracking-wider">Student Name</label>
               <input 
                 type="text" 
                 value={userName} 
                 onChange={(e) => setUserName(e.target.value)} 
                 className={`p-3 border-2 border-black text-sm font-bold focus:outline-none ${darkMode ? 'bg-neutral-700 text-white' : 'bg-white text-black'}`}
-                placeholder="Enter name..." 
-              />
-            </div>
-
-            <div className="flex flex-col gap-1.5">
-              <label className="text-xs font-bold uppercase tracking-wider">Email ID (Cloud Backup)</label>
-              <input 
-                type="email" 
-                value={userEmail} 
-                onChange={(e) => setUserEmail(e.target.value)} 
-                className={`p-3 border-2 border-black text-sm font-bold focus:outline-none ${darkMode ? 'bg-neutral-700 text-white' : 'bg-white text-black'}`}
-                placeholder="student@example.com" 
+                placeholder="Enter your name..." 
               />
             </div>
 
@@ -305,11 +313,11 @@ export default function App() {
           </div>
 
           <button 
-            onClick={handleInitialLogin} 
-            disabled={!userName || !userGrade} 
+            onClick={handleLogin} 
+            disabled={!userName.trim()} 
             className="p-4 bg-black text-white font-bold text-sm tracking-widest uppercase disabled:bg-neutral-400 disabled:cursor-not-allowed hover:bg-neutral-800 transition-colors shadow-[4px_4px_0px_0px_rgba(0,0,0,1)] active:translate-x-1 active:translate-y-1 active:shadow-none cursor-pointer"
           >
-            Enter Offline Portal
+            Launch Dashboard
           </button>
         </div>
       </div>
@@ -317,23 +325,23 @@ export default function App() {
   }
 
   // =========================================================================
-  // VIEW 2: MAIN EDUCATIONAL PORTAL
+  // VIEW 2: MAIN APP WITH PERSISTENT TABS (DASHBOARD / SYLLABUS / CHAT)
   // =========================================================================
   return (
     <div className={`flex justify-center items-center min-h-screen p-2 sm:p-6 font-['Space_Mono',monospace] ${darkMode ? 'bg-neutral-900 text-neutral-100' : 'bg-[#cac2b7] text-black'}`}>
       <div className={`flex flex-col h-[92vh] max-h-[820px] w-full max-w-sm rounded-2xl overflow-hidden border-2 border-black shadow-[8px_8px_0px_0px_rgba(0,0,0,1)] ${darkMode ? 'bg-neutral-800' : 'bg-[#f4efe8]'}`}>
         
-        {/* Top Header */}
+        {/* Persistent Top Header */}
         <header className={`p-3 border-b-2 border-black flex items-center justify-between select-none ${darkMode ? 'bg-neutral-800' : 'bg-[#ede6dc]'}`}>
           <div className="flex items-baseline gap-1">
             <span className="font-['Kavivanar',serif] font-black text-lg leading-none">கல்வி</span>
             <span className="font-extrabold text-sm tracking-wider uppercase font-['VT323',monospace] text-base leading-none">
-              AI // CLASS {userGrade}
+              AI // STD {userGrade}
             </span>
           </div>
 
           <div className="flex items-center gap-1.5">
-            {/* Dark / Light Mode Toggle */}
+            {/* Dark/Light Toggle */}
             <button 
               onClick={toggleTheme} 
               className="p-1.5 border border-black bg-white dark:bg-neutral-700 rounded text-xs cursor-pointer shadow-[2px_2px_0px_0px_rgba(0,0,0,1)]"
@@ -342,165 +350,325 @@ export default function App() {
               {darkMode ? <Sun className="w-3.5 h-3.5 text-amber-300" /> : <Moon className="w-3.5 h-3.5 text-black" />}
             </button>
 
-            {/* Bilingual Toggle */}
+            {/* Bilingual Switcher */}
             <button 
               onClick={() => setLang(lang === 'en' ? 'ta' : 'en')}
               className="px-2 py-1 border border-black rounded text-[10px] font-bold uppercase bg-[#d8f3dc] text-black shadow-[2px_2px_0px_0px_rgba(0,0,0,1)] active:translate-x-0.5 active:translate-y-0.5 cursor-pointer"
             >
               {lang === 'en' ? 'தமிழ்' : 'ENG'}
             </button>
+
+            {/* Logout Button */}
+            <button 
+              onClick={handleLogout}
+              className="p-1.5 border border-black bg-rose-200 text-rose-900 rounded text-xs cursor-pointer shadow-[2px_2px_0px_0px_rgba(0,0,0,1)]"
+              title="Logout Session"
+            >
+              <LogOut className="w-3.5 h-3.5" />
+            </button>
           </div>
         </header>
 
-        {/* Personalized Student & Network Status Banner */}
-        <div className="bg-black text-[#6bf755] px-3 py-1 font-['VT323',monospace] text-sm flex justify-between tracking-widest border-b-2 border-black">
-          <span>USER: {userName.toUpperCase()}</span>
-          <span>{navigator.onLine ? '[CLOUD READY]' : '[100% OFFLINE]'}</span>
+        {/* User Identity Banner */}
+        <div className="bg-black text-[#6bf755] px-3 py-1 font-['VT323',monospace] text-sm flex justify-between tracking-widest border-b-2 border-black uppercase">
+          <span>STUDENT: {userName}</span>
+          <span>{completedCount}/{totalTopicsCount} TOPICS DONE</span>
         </div>
 
-        {/* 1. SUBJECT SELECTION */}
-        {appStage === 'subjects' && (
-          <div className="flex flex-col h-full p-4 space-y-4">
-            <h2 className="text-base font-black uppercase border-b-2 border-black pb-1.5">
-              {lang === 'en' ? 'Select Subject' : 'பாடத்தைத் தேர்ந்தெடுக்கவும்'}
-            </h2>
-            <div className="grid grid-cols-1 gap-3">
-              {subjects.map(subject => (
-                <button 
-                  key={subject}
-                  onClick={() => { setSelectedSubject(subject); setAppStage('lessons'); }}
-                  className="p-4 border-2 border-black bg-[#ffd166] text-black font-bold text-sm tracking-wider uppercase shadow-[4px_4px_0px_0px_rgba(0,0,0,1)] hover:-translate-y-0.5 active:translate-x-0.5 active:translate-y-0.5 transition-all text-left flex justify-between items-center cursor-pointer"
-                >
-                  <span>{lang === 'en' ? subject : (subject === 'Physics' ? 'இயற்பியல்' : subject === 'Chemistry' ? 'வேதியியல்' : 'உயிரியல்')}</span>
-                  <span className="text-xs bg-black text-white px-2 py-0.5 font-mono">12TH</span>
-                </button>
-              ))}
-            </div>
-          </div>
-        )}
+        {/* ================================================================= */}
+        {/* TAB 1: INTERACTIVE PROGRESS DASHBOARD */}
+        {/* ================================================================= */}
+        {activeTab === 'dashboard' && (
+          <div className="flex-1 min-h-0 overflow-y-auto p-4 space-y-4">
+            
+            {/* 1. Master Progress Meter Card */}
+            <div className={`p-4 border-2 border-black shadow-[4px_4px_0px_0px_rgba(0,0,0,1)] space-y-3 ${darkMode ? 'bg-neutral-700' : 'bg-[#fdfcf9]'}`}>
+              <div className="flex justify-between items-center border-b border-black pb-1.5">
+                <span className="text-xs font-black uppercase flex items-center gap-1.5">
+                  <BarChart3 className="w-4 h-4 text-emerald-500" />
+                  {lang === 'en' ? 'Overall Completion' : 'மொத்த முன்னேற்றம்'}
+                </span>
+                <span className="font-['VT323',monospace] text-2xl font-bold">{overallPercentage}%</span>
+              </div>
 
-        {/* 2. LESSONS LIST */}
-        {appStage === 'lessons' && (
-          <div className="flex flex-col h-full p-4 space-y-3">
-            <button 
-              onClick={() => setAppStage('subjects')} 
-              className="self-start text-xs font-bold uppercase underline hover:opacity-75 cursor-pointer"
-            >
-              &larr; {lang === 'en' ? 'Back to Subjects' : 'பாடப் பிரிவுக்குச் செல்'}
-            </button>
-            <h2 className="text-base font-black uppercase border-b-2 border-black pb-1">
-              {selectedSubject} {lang === 'en' ? 'Lessons' : 'பாடங்கள்'}
-            </h2>
-            <div className="flex-1 overflow-y-auto space-y-3 pr-1">
-              {filteredLessons.map(lesson => {
-                const isDone = completedTopics.includes(lesson.id)
+              {/* Visual Progress Bar */}
+              <div className="w-full bg-neutral-200 dark:bg-neutral-800 h-4 border border-black overflow-hidden p-0.5">
+                <div 
+                  className="bg-emerald-500 h-full transition-all duration-500" 
+                  style={{ width: `${overallPercentage}%` }}
+                />
+              </div>
+
+              {/* Dashboard Score Cards */}
+              <div className="grid grid-cols-2 gap-2 pt-1">
+                <div className={`p-2 border border-black text-center ${darkMode ? 'bg-neutral-800' : 'bg-[#ede6dc]'}`}>
+                  <span className="text-[10px] font-bold text-neutral-400 block uppercase">
+                    {lang === 'en' ? 'Avg Quiz Score' : 'சராசரி மதிப்பெண்'}
+                  </span>
+                  <span className="text-lg font-black">{averageScore}%</span>
+                </div>
+                <div className={`p-2 border border-black text-center ${darkMode ? 'bg-neutral-800' : 'bg-[#ede6dc]'}`}>
+                  <span className="text-[10px] font-bold text-neutral-400 block uppercase">
+                    {lang === 'en' ? 'Quizzes Passed' : 'முடித்த தேர்வுகள்'}
+                  </span>
+                  <span className="text-lg font-black">{completedCount}</span>
+                </div>
+              </div>
+            </div>
+
+            {/* 2. Subject Breakdown Meters */}
+            <div className="space-y-2">
+              <h3 className="text-xs font-black uppercase tracking-wider">
+                {lang === 'en' ? 'Subject-Wise Mastery' : 'பாடவாரி முன்னேற்றம்'}
+              </h3>
+
+              {subjects.map(subj => {
+                const metrics = getSubjectMetrics(subj)
                 return (
                   <div 
-                    key={lesson.id}
-                    onClick={() => { setSelectedLesson(lesson); setAppStage('topicDetail'); }}
-                    className={`p-3 border-2 border-black shadow-[4px_4px_0px_0px_rgba(0,0,0,1)] cursor-pointer transition-colors space-y-1 ${darkMode ? 'bg-neutral-700 hover:bg-neutral-600' : 'bg-[#fdfcf9] hover:bg-[#fff9db]'}`}
+                    key={subj} 
+                    className={`p-3 border-2 border-black shadow-[3px_3px_0px_0px_rgba(0,0,0,1)] space-y-1.5 cursor-pointer hover:opacity-95 ${darkMode ? 'bg-neutral-700' : 'bg-[#fdfcf9]'}`}
+                    onClick={() => {
+                      setSelectedSubject(subj)
+                      setSyllabusView('lessons')
+                      setActiveTab('syllabus')
+                    }}
                   >
-                    <div className="flex justify-between items-center text-[10px] font-bold text-neutral-400 uppercase">
-                      <span>{lesson.chapter}</span>
-                      {isDone && <span className="flex items-center gap-1 text-emerald-500 font-bold"><CheckCircle2 className="w-3 h-3" /> DONE</span>}
+                    <div className="flex justify-between items-center text-xs font-bold">
+                      <span>{lang === 'en' ? subj : (subj === 'Physics' ? 'இயற்பியல்' : subj === 'Chemistry' ? 'வேதியியல்' : 'உயிரியல்')}</span>
+                      <span>{metrics.percent}% ({metrics.completed}/{metrics.total})</span>
                     </div>
-                    <h3 className="text-xs font-bold leading-tight">{lang === 'en' ? lesson.topic : lesson.topic_ta}</h3>
+                    <div className="w-full bg-neutral-200 dark:bg-neutral-800 h-2.5 border border-black overflow-hidden">
+                      <div 
+                        className="bg-[#ffd166] h-full transition-all duration-300" 
+                        style={{ width: `${metrics.percent}%` }}
+                      />
+                    </div>
                   </div>
                 )
               })}
             </div>
-          </div>
-        )}
 
-        {/* 3. TOPIC DETAIL & ACTIONS */}
-        {appStage === 'topicDetail' && selectedLesson && (
-          <div className="flex flex-col h-full p-4 space-y-3">
+            {/* Quick Action Button to Jump into Learning */}
             <button 
-              onClick={() => setAppStage('lessons')} 
-              className="self-start text-xs font-bold uppercase underline hover:opacity-75 cursor-pointer"
+              onClick={() => {
+                setSelectedSubject(subjects[0])
+                setSyllabusView('subjects')
+                setActiveTab('syllabus')
+              }}
+              className="w-full py-3 bg-[#ffd166] text-black border-2 border-black font-bold text-xs uppercase tracking-wider shadow-[4px_4px_0px_0px_rgba(0,0,0,1)] active:translate-x-0.5 active:translate-y-0.5 cursor-pointer flex items-center justify-center gap-2"
             >
-              &larr; {lang === 'en' ? 'Back to Lessons' : 'பட்டியலுக்குச் செல்'}
+              <BookOpen className="w-4 h-4" />
+              <span>{lang === 'en' ? 'Continue Lesson Quizzes' : 'பயிற்சித் தேர்வை தொடரவும்'}</span>
             </button>
-            <div className="space-y-0.5 border-b-2 border-black pb-2">
-              <span className="text-[10px] font-bold text-neutral-400 uppercase">{selectedLesson.chapter}</span>
-              <h2 className="text-sm font-black uppercase">{lang === 'en' ? selectedLesson.topic : selectedLesson.topic_ta}</h2>
-            </div>
-            <div className="flex-1 overflow-y-auto pr-1 text-xs leading-relaxed space-y-3">
-              <p>{lang === 'en' ? selectedLesson.summary_en : selectedLesson.summary_ta}</p>
-              {selectedLesson.formula && (
-                <div className={`p-2 border border-black text-[11px] font-bold ${darkMode ? 'bg-neutral-700' : 'bg-[#ede6dc]'}`}>
-                  Formula: {selectedLesson.formula}
-                </div>
-              )}
-            </div>
-            <div className="space-y-2 pt-2">
-              <button 
-                onClick={() => {
-                  setActiveTab('chat')
-                  setActiveBot('arivu')
-                  const promptText = lang === 'en' ? `Explain "${selectedLesson.topic}" with an everyday analogy.` : `"${selectedLesson.topic_ta}" என்பதை எனக்கு எளிய உதாரணத்துடன் விளக்கு.`
-                  setMessages([{ sender: 'user', text: promptText }])
-                  triggerOfflineSLM(promptText, selectedLesson)
-                }}
-                className="w-full py-2.5 bg-[#ffd6a5] text-black border-2 border-black font-bold text-xs uppercase tracking-wider shadow-[3px_3px_0px_0px_rgba(0,0,0,1)] active:translate-x-0.5 active:translate-y-0.5 cursor-pointer flex items-center justify-center gap-1.5"
-              >
-                <Sparkles className="w-3.5 h-3.5" />
-                <span>{lang === 'en' ? 'Explain via Offline AI (Arivu)' : 'அறிவு AI விளக்கம்'}</span>
-              </button>
-              <button 
-                onClick={() => setAppStage('quiz')}
-                className="w-full py-2.5 bg-[#ff6b6b] text-black border-2 border-black font-bold text-xs uppercase tracking-wider shadow-[3px_3px_0px_0px_rgba(0,0,0,1)] active:translate-x-0.5 active:translate-y-0.5 cursor-pointer"
-              >
-                {lang === 'en' ? 'Take Topic Assessment (Quiz)' : 'பயிற்சித் தேர்வு (Quiz)'}
-              </button>
-            </div>
           </div>
         )}
 
-        {/* 4. QUIZ ASSESSMENT */}
-        {appStage === 'quiz' && selectedLesson && (
-          <div className="flex flex-col h-full p-4 space-y-3">
-            <h2 className="text-base font-black uppercase border-b-2 border-black pb-1">
-              Assessment: {selectedLesson.topic}
-            </h2>
-            <div className="flex-1 overflow-y-auto space-y-3 pr-1 text-xs">
-              {[...Array(5)].map((_, i) => (
-                <div key={i} className={`p-3 border border-black space-y-2 ${darkMode ? 'bg-neutral-700' : 'bg-[#fdfcf9]'}`}>
-                  <p className="font-bold">Q{i + 1}: Conceptual check regarding {selectedLesson.topic}?</p>
-                  <div className="space-y-1">
-                    {['Option A: Correct Principle', 'Option B: Inverse Reaction', 'Option C: Null State', 'Option D: Constant'].map((opt, optIndex) => (
-                      <label key={optIndex} className="flex items-center gap-2 text-[11px] cursor-pointer">
-                        <input 
-                          type="radio" 
-                          name={`q${i}`} 
-                          className="accent-black" 
-                          onChange={() => setQuizAnswers(prev => ({ ...prev, [i]: optIndex }))}
-                        />
-                        <span>{opt}</span>
-                      </label>
-                    ))}
+        {/* ================================================================= */}
+        {/* TAB 2: SYLLABUS, TOPICS, AND SCROLLABLE QUIZZES */}
+        {/* ================================================================= */}
+        {activeTab === 'syllabus' && (
+          <div className="flex-1 min-h-0 flex flex-col p-3 overflow-hidden">
+            
+            {/* SUB-VIEW 1: SELECT SUBJECT */}
+            {syllabusView === 'subjects' && (
+              <div className="flex-1 min-h-0 overflow-y-auto space-y-3">
+                <h2 className="text-sm font-black uppercase border-b-2 border-black pb-1">
+                  {lang === 'en' ? 'Select Subject' : 'பாடத்தைத் தேர்ந்தெடுக்கவும்'}
+                </h2>
+                <div className="grid grid-cols-1 gap-2.5">
+                  {subjects.map(subj => {
+                    const metrics = getSubjectMetrics(subj)
+                    return (
+                      <button 
+                        key={subj}
+                        onClick={() => { setSelectedSubject(subj); setSyllabusView('lessons'); }}
+                        className="p-3.5 border-2 border-black bg-[#ffd166] text-black font-bold text-xs tracking-wider uppercase shadow-[3px_3px_0px_0px_rgba(0,0,0,1)] hover:-translate-y-0.5 active:translate-x-0.5 active:translate-y-0.5 transition-all text-left flex justify-between items-center cursor-pointer"
+                      >
+                        <span>{lang === 'en' ? subj : (subj === 'Physics' ? 'இயற்பியல்' : subj === 'Chemistry' ? 'வேதியியல்' : 'உயிரியல்')}</span>
+                        <span className="text-[10px] bg-black text-white px-2 py-0.5 font-mono">{metrics.completed}/{metrics.total} DONE</span>
+                      </button>
+                    )
+                  })}
+                </div>
+              </div>
+            )}
+
+            {/* SUB-VIEW 2: LESSONS LIST */}
+            {syllabusView === 'lessons' && (
+              <div className="flex-1 min-h-0 flex flex-col space-y-2">
+                <button 
+                  onClick={() => setSyllabusView('subjects')} 
+                  className="self-start text-[11px] font-bold uppercase underline cursor-pointer"
+                >
+                  &larr; {lang === 'en' ? 'Back to Subjects' : 'பாடங்கள்'}
+                </button>
+                <h2 className="text-sm font-black uppercase border-b-2 border-black pb-1">
+                  {selectedSubject} {lang === 'en' ? 'Topics' : 'தலைப்புகள்'}
+                </h2>
+                <div className="flex-1 min-h-0 overflow-y-auto space-y-2.5 pr-1">
+                  {filteredLessons.map(lesson => {
+                    const progress = topicProgress[lesson.id]
+                    const isDone = progress?.completed
+                    return (
+                      <div 
+                        key={lesson.id}
+                        onClick={() => { setSelectedLesson(lesson); setSyllabusView('topicDetail'); }}
+                        className={`p-3 border-2 border-black shadow-[3px_3px_0px_0px_rgba(0,0,0,1)] cursor-pointer transition-colors space-y-1 ${darkMode ? 'bg-neutral-700 hover:bg-neutral-600' : 'bg-[#fdfcf9] hover:bg-[#fff9db]'}`}
+                      >
+                        <div className="flex justify-between items-center text-[10px] font-bold text-neutral-400 uppercase">
+                          <span>{lesson.chapter}</span>
+                          {isDone ? (
+                            <span className="flex items-center gap-1 text-emerald-500 font-bold">
+                              <CheckCircle2 className="w-3 h-3" /> {progress.score}%
+                            </span>
+                          ) : (
+                            <span className="text-amber-500">PENDING QUIZ</span>
+                          )}
+                        </div>
+                        <h3 className="text-xs font-bold leading-tight">{lang === 'en' ? lesson.topic : lesson.topic_ta}</h3>
+                      </div>
+                    )
+                  })}
+                </div>
+              </div>
+            )}
+
+            {/* SUB-VIEW 3: TOPIC DETAILS & ACTIONS */}
+            {syllabusView === 'topicDetail' && selectedLesson && (
+              <div className="flex-1 min-h-0 flex flex-col space-y-3">
+                <button 
+                  onClick={() => setSyllabusView('lessons')} 
+                  className="self-start text-[11px] font-bold uppercase underline cursor-pointer"
+                >
+                  &larr; {lang === 'en' ? 'Back to Topics' : 'பட்டியல்'}
+                </button>
+                <div className="space-y-0.5 border-b-2 border-black pb-1.5">
+                  <span className="text-[10px] font-bold text-neutral-400 uppercase">{selectedLesson.chapter}</span>
+                  <h2 className="text-sm font-black uppercase">{lang === 'en' ? selectedLesson.topic : selectedLesson.topic_ta}</h2>
+                </div>
+                <div className="flex-1 min-h-0 overflow-y-auto pr-1 text-xs leading-relaxed space-y-3">
+                  <p>{lang === 'en' ? selectedLesson.summary_en : selectedLesson.summary_ta}</p>
+                  {selectedLesson.formula && (
+                    <div className={`p-2 border border-black text-[11px] font-bold ${darkMode ? 'bg-neutral-700' : 'bg-[#ede6dc]'}`}>
+                      Formula: {selectedLesson.formula}
+                    </div>
+                  )}
+                </div>
+                <div className="space-y-2 pt-1">
+                  <button 
+                    onClick={() => startQuizForTopic(selectedLesson)}
+                    className="w-full py-2.5 bg-[#ff6b6b] text-black border-2 border-black font-bold text-xs uppercase tracking-wider shadow-[3px_3px_0px_0px_rgba(0,0,0,1)] active:translate-x-0.5 active:translate-y-0.5 cursor-pointer flex items-center justify-center gap-1.5"
+                  >
+                    <Award className="w-4 h-4" />
+                    <span>{topicProgress[selectedLesson.id]?.completed ? 'Retake Quiz (Update Marks)' : 'Take Topic Quiz (5 Questions)'}</span>
+                  </button>
+                </div>
+              </div>
+            )}
+
+            {/* SUB-VIEW 4: FULL SCROLLABLE 5-QUESTION QUIZ WITH REAL MARKS */}
+            {syllabusView === 'quiz' && selectedLesson && (
+              <div className="flex-1 min-h-0 flex flex-col space-y-2">
+                <div className="flex justify-between items-center border-b-2 border-black pb-1">
+                  <div>
+                    <span className="text-[9px] font-bold uppercase text-neutral-400">{selectedLesson.topic}</span>
+                    <h3 className="text-xs font-black uppercase">Topic Assessment</h3>
                   </div>
+                  {quizSubmitted && (
+                    <span className="px-2 py-0.5 bg-black text-[#6bf755] font-['VT323',monospace] text-base">
+                      SCORE: {currentQuizScore}%
+                    </span>
+                  )}
                 </div>
-              ))}
-            </div>
-            <button 
-              onClick={handleCompleteQuiz}
-              className="w-full py-3 bg-black text-white border-2 border-black font-bold text-xs uppercase tracking-wider shadow-[4px_4px_0px_0px_rgba(0,0,0,1)] active:translate-x-0.5 active:translate-y-0.5 cursor-pointer"
-            >
-              Submit & Save Progress Offline
-            </button>
+
+                {/* SCROLL CONTAINER WITH EXPLICIT OVERFLOW */}
+                <div className="flex-1 min-h-0 overflow-y-auto space-y-3 pr-1.5 text-xs">
+                  {SAMPLE_QUIZ_QUESTIONS.map((item, qIdx) => {
+                    const selectedOpt = currentQuizSelection[qIdx]
+                    return (
+                      <div 
+                        key={qIdx} 
+                        className={`p-3 border-2 border-black space-y-2 ${darkMode ? 'bg-neutral-700' : 'bg-[#fdfcf9]'}`}
+                      >
+                        <p className="font-bold leading-tight">
+                          Q{qIdx + 1}: {lang === 'en' ? item.q_en : item.q_ta}
+                        </p>
+                        <div className="space-y-1.5">
+                          {(lang === 'en' ? item.options_en : item.options_ta).map((opt, optIdx) => {
+                            const isSelected = selectedOpt === optIdx
+                            const isCorrect = item.correct === optIdx
+                            let optionClass = darkMode ? 'bg-neutral-800' : 'bg-[#ede6dc]'
+
+                            if (quizSubmitted) {
+                              if (isCorrect) optionClass = 'bg-emerald-200 text-emerald-900 border-emerald-600 font-bold'
+                              else if (isSelected && !isCorrect) optionClass = 'bg-rose-200 text-rose-900 border-rose-600'
+                            } else if (isSelected) {
+                              optionClass = 'bg-[#ffd166] font-bold shadow-[2px_2px_0px_0px_rgba(0,0,0,1)]'
+                            }
+
+                            return (
+                              <button
+                                key={optIdx}
+                                disabled={quizSubmitted}
+                                onClick={() => setCurrentQuizSelection(prev => ({ ...prev, [qIdx]: optIdx }))}
+                                className={`w-full p-2 border border-black text-left text-[11px] transition-all flex justify-between items-center ${optionClass}`}
+                              >
+                                <span>{opt}</span>
+                                {quizSubmitted && isCorrect && <Check className="w-3.5 h-3.5 text-emerald-700" />}
+                                {quizSubmitted && isSelected && !isCorrect && <X className="w-3.5 h-3.5 text-rose-700" />}
+                              </button>
+                            )
+                          })}
+                        </div>
+                      </div>
+                    )
+                  })}
+                </div>
+
+                {/* Quiz Action Footer */}
+                <div className="pt-1 flex gap-2">
+                  {!quizSubmitted ? (
+                    <button 
+                      onClick={handleSubmitQuiz}
+                      disabled={Object.keys(currentQuizSelection).length < SAMPLE_QUIZ_QUESTIONS.length}
+                      className="flex-1 py-2.5 bg-black text-white border-2 border-black font-bold text-xs uppercase tracking-wider disabled:bg-neutral-400 shadow-[3px_3px_0px_0px_rgba(0,0,0,1)] active:translate-x-0.5 active:translate-y-0.5 cursor-pointer"
+                    >
+                      Submit & Save Marks
+                    </button>
+                  ) : (
+                    <button 
+                      onClick={() => {
+                        setSyllabusView('topicDetail')
+                        setActiveTab('dashboard')
+                      }}
+                      className="flex-1 py-2.5 bg-emerald-500 text-black border-2 border-black font-bold text-xs uppercase tracking-wider shadow-[3px_3px_0px_0px_rgba(0,0,0,1)] active:translate-x-0.5 active:translate-y-0.5 cursor-pointer"
+                    >
+                      View Dashboard Update &rarr;
+                    </button>
+                  )}
+                  <button 
+                    onClick={() => setSyllabusView('topicDetail')}
+                    className="px-3 py-2.5 bg-neutral-200 text-black border-2 border-black font-bold text-xs uppercase cursor-pointer"
+                  >
+                    Back
+                  </button>
+                </div>
+              </div>
+            )}
           </div>
         )}
 
-        {/* 5. AI CHAT & CRISIS INTERCEPTION DECK */}
+        {/* ================================================================= */}
+        {/* TAB 3: TUTOR & CRISIS TRIAGE CHAT */}
+        {/* ================================================================= */}
         {activeTab === 'chat' && (
-          <div className="flex flex-col h-full">
+          <div className="flex-1 min-h-0 flex flex-col">
             <header className="p-2 border-b border-black flex justify-between items-center bg-black text-white text-xs">
-              <span>CHAT WITH {activeBot === 'kavani' ? 'KAVANI (TRIAGE)' : 'ARIVU (OFFLINE AI)'}</span>
-              <button onClick={() => setActiveTab('syllabus')} className="underline text-[10px] cursor-pointer">&larr; Back</button>
+              <span>{activeBot === 'kavani' ? 'KAVANI (TRIAGE ACTIVE)' : 'ARIVU (ACADEMIC TUTOR)'}</span>
             </header>
 
-            <div className="flex-1 overflow-y-auto p-3 space-y-3">
+            <div className="flex-1 min-h-0 overflow-y-auto p-3 space-y-3">
               {messages.map((msg, index) => (
                 <div key={index} className={`flex flex-col ${msg.sender === 'user' ? 'items-end' : 'items-start'}`}>
                   <div className={`max-w-[88%] p-2.5 text-[11px] leading-relaxed border border-black shadow-[3px_3px_0px_0px_rgba(0,0,0,1)] ${
@@ -513,16 +681,10 @@ export default function App() {
                       : darkMode ? 'bg-neutral-700 text-white' : 'bg-[#fdfcf9] text-black'
                   }`}>
                     <p className="whitespace-pre-line">{msg.text}</p>
-                    {msg.formula && (
-                      <div className="mt-1.5 pt-1.5 border-t border-dashed border-black/40 text-[10px] font-bold">
-                        KEY: {msg.formula}
-                      </div>
-                    )}
                   </div>
                 </div>
               ))}
 
-              {/* 3-Strike Escalation Direct Dialers */}
               {strikeCount >= 3 && (
                 <div className="p-3 bg-[#ffadad] border-2 border-black shadow-[4px_4px_0px_0px_rgba(0,0,0,1)] space-y-2 mt-2 text-black">
                   <div className="flex items-center gap-1.5 text-xs font-black uppercase">
@@ -548,34 +710,24 @@ export default function App() {
               <div ref={messagesEndRef} />
             </div>
 
-            {/* Input Bar with Camera / Photo Upload Button */}
             <footer className={`p-2 border-t-2 border-black select-none ${darkMode ? 'bg-neutral-800' : 'bg-[#ede6dc]'}`}>
               {strikeCount >= 3 ? (
                 <div className="p-1.5 bg-red-100 text-black border border-black text-center text-[10px] font-bold">
                   SYSTEM LOCKED FOR STUDENT SAFETY.
                 </div>
               ) : (
-                <form onSubmit={(e) => { e.preventDefault(); handleUserMessage(inputValue); }} className="flex gap-1.5">
-                  <button 
-                    type="button" 
-                    onClick={() => setShowPicModal(true)} 
-                    className="p-2 bg-white dark:bg-neutral-700 border border-black text-black dark:text-white cursor-pointer shadow-[2px_2px_0px_0px_rgba(0,0,0,1)] active:translate-x-0.5 active:translate-y-0.5"
-                    title="Upload Photo Problem"
-                  >
-                    <Camera className="w-3.5 h-3.5" />
-                  </button>
+                <form onSubmit={(e) => { e.preventDefault(); handleSendMessage(inputValue); }} className="flex gap-1.5">
                   <input
                     type="text"
                     value={inputValue}
                     onChange={(e) => setInputValue(e.target.value)}
-                    placeholder={lang === 'en' ? "Ask offline Arivu..." : "கேள்வி கேட்கவும்..."}
-                    disabled={isGenerating}
+                    placeholder={lang === 'en' ? "Ask Arivu or share thoughts..." : "கேள்வி கேட்கவும்..."}
                     className={`flex-1 border border-black px-2.5 py-1.5 text-[11px] font-bold focus:outline-none ${darkMode ? 'bg-neutral-700 text-white' : 'bg-[#fdfcf9] text-black'}`}
                   />
                   <button 
                     type="submit" 
-                    disabled={isGenerating || !inputValue.trim()}
-                    className="px-3 bg-black text-white hover:bg-neutral-800 disabled:bg-neutral-400 border border-black font-bold text-xs uppercase cursor-pointer shadow-[2px_2px_0px_0px_rgba(0,0,0,1)] active:translate-x-0.5 active:translate-y-0.5"
+                    disabled={!inputValue.trim()}
+                    className="px-3 bg-black text-white border border-black font-bold text-xs uppercase cursor-pointer shadow-[2px_2px_0px_0px_rgba(0,0,0,1)] active:translate-x-0.5 active:translate-y-0.5"
                   >
                     <Send className="w-3.5 h-3.5" />
                   </button>
@@ -585,55 +737,40 @@ export default function App() {
           </div>
         )}
 
-        {/* PICTURE UPLOAD MODAL */}
-        {showPicModal && (
-          <div className="fixed inset-0 bg-black/70 backdrop-blur-sm z-50 flex items-center justify-center p-4">
-            <div className={`w-full max-w-xs p-5 border-2 border-black shadow-[8px_8px_0px_0px_rgba(0,0,0,1)] space-y-4 ${darkMode ? 'bg-neutral-800 text-white' : 'bg-[#fdfcf9] text-black'}`}>
-              <div className="flex justify-between items-center border-b border-black pb-2">
-                <h3 className="text-xs font-black uppercase">📸 Problem Solver (Photo)</h3>
-                <button onClick={() => setShowPicModal(false)}><X className="w-4 h-4 cursor-pointer" /></button>
-              </div>
+        {/* PERSISTENT BOTTOM NAVIGATION TAB BAR */}
+        <footer className="grid grid-cols-3 border-t-2 border-black bg-[#ede6dc] dark:bg-neutral-800 select-none text-[11px] font-bold uppercase">
+          <button 
+            onClick={() => setActiveTab('dashboard')} 
+            className={`flex items-center justify-center gap-1.5 py-2.5 border-r-2 border-black cursor-pointer ${activeTab === 'dashboard' ? 'bg-[#ffd166] text-black' : 'hover:bg-neutral-200 dark:hover:bg-neutral-700'}`}
+          >
+            <LayoutDashboard className="w-3.5 h-3.5" />
+            <span>{lang === 'en' ? 'Dashboard' : 'முன்னேற்றம்'}</span>
+          </button>
+          
+          <button 
+            onClick={() => {
+              setActiveTab('syllabus')
+              setSyllabusView('subjects')
+            }} 
+            className={`flex items-center justify-center gap-1.5 py-2.5 border-r-2 border-black cursor-pointer ${activeTab === 'syllabus' ? 'bg-[#ffd166] text-black' : 'hover:bg-neutral-200 dark:hover:bg-neutral-700'}`}
+          >
+            <BookOpen className="w-3.5 h-3.5" />
+            <span>{lang === 'en' ? 'Syllabus' : 'பாடங்கள்'}</span>
+          </button>
 
-              <input 
-                type="file" 
-                accept="image/*" 
-                capture="environment" 
-                ref={fileInputRef} 
-                onChange={handleImageFileChange} 
-                className="hidden" 
-              />
-
-              {selectedImageBase64 ? (
-                <div className="space-y-2">
-                  <img src={selectedImageBase64} alt="Problem Preview" className="max-h-36 w-full object-contain border border-black bg-black" />
-                  <input 
-                    type="text" 
-                    value={imagePrompt} 
-                    onChange={(e) => setImagePrompt(e.target.value)} 
-                    placeholder="Specific question (optional)..."
-                    className={`w-full p-2 border border-black text-xs font-bold focus:outline-none ${darkMode ? 'bg-neutral-700 text-white' : 'bg-white text-black'}`}
-                  />
-                </div>
-              ) : (
-                <button 
-                  onClick={() => fileInputRef.current?.click()}
-                  className="w-full py-8 border-2 border-dashed border-black flex flex-col items-center justify-center gap-2 cursor-pointer hover:bg-neutral-100 dark:hover:bg-neutral-700"
-                >
-                  <Upload className="w-6 h-6" />
-                  <span className="text-[11px] font-bold uppercase">Snap or Select Photo</span>
-                </button>
-              )}
-
-              <button 
-                onClick={handleSolveImageProblem}
-                disabled={!selectedImageBase64 || isSolvingImage}
-                className="w-full py-2.5 bg-black text-white border border-black font-bold text-xs uppercase tracking-wider disabled:bg-neutral-400 cursor-pointer flex items-center justify-center gap-1.5"
-              >
-                {isSolvingImage ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : 'Solve Problem (Cloud AI)'}
-              </button>
-            </div>
-          </div>
-        )}
+          <button 
+            onClick={() => {
+              setActiveTab('chat')
+              if (messages.length === 0) {
+                setMessages([{ sender: 'arivu', text: lang === 'en' ? `Hello ${userName}! Ask me any conceptual question or pick a lesson.` : `வணக்கம் ${userName}! உங்கள் கேள்வியைக் கேட்கவும்.` }])
+              }
+            }} 
+            className={`flex items-center justify-center gap-1.5 py-2.5 cursor-pointer ${activeTab === 'chat' ? 'bg-[#ffd166] text-black' : 'hover:bg-neutral-200 dark:hover:bg-neutral-700'}`}
+          >
+            <Sparkles className="w-3.5 h-3.5" />
+            <span>{lang === 'en' ? 'AI Chat' : 'அறிவு AI'}</span>
+          </button>
+        </footer>
 
       </div>
     </div>
