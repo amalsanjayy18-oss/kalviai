@@ -1,0 +1,21 @@
+{
+  "headers": [
+    {
+      "source": "/(.*)",
+      "headers": [
+        {
+          "key": "Content-Security-Policy",
+          "value": "default-src 'self' https: data: blob:; script-src 'self' 'unsafe-eval' 'wasm-unsafe-eval' 'unsafe-inline' https: blob:; style-src 'self' 'unsafe-inline' https:; connect-src 'self' https: wss: blob: data:; img-src 'self' data: blob: https:;"
+        },
+        {
+          "key": "Cross-Origin-Opener-Policy",
+          "value": "same-origin"
+        },
+        {
+          "key": "Cross-Origin-Embedder-Policy",
+          "value": "credentialless"
+        }
+      ]
+    }
+  ]
+}
