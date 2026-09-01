@@ -15,7 +15,7 @@ export async function initSLM(onProgress) {
   if (!generatorPromise) {
     generatorPromise = pipeline(
       'text-generation', 
-      'onnx-community/SmolLM2-135M-Instruct',
+      'Xenova/Qwen1.5-0.5B-Chat',
       {
         device: 'webgpu', // Attempts to use hardware acceleration first
         progress_callback: onProgress
