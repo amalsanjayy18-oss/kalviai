@@ -31,6 +31,10 @@ export async function initSLM(onProgress) {
         }
       )
     })
+
+    generatorPromise.catch(() => {
+      generatorPromise = null
+    })
   }
   return generatorPromise
 }
